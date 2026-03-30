@@ -1,4 +1,40 @@
-﻿Function WimWitchFK {
+﻿# 1. FORCE LOAD UI ASSEMBLIES
+Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, System.Xaml, System.Windows.Forms
+
+# 2. DEFINE PATHS
+$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
+$XamlPath = Join-Path $ScriptDir "WIMWitch.xml"
+
+# 3. VERIFY XML EXISTS
+if (!(Test-Path $XamlPath)) {
+    [System.Windows.MessageBox]::Show("CRITICAL: WIMWitch.xml not found at $XamlPath", "Missing File")
+    exit
+}
+
+# 4. LOAD THE XAML AND INITIALIZE THE FORM
+try {
+    $input_xml = Get-Content $XamlPath -Raw
+    $input_xml = $input_xml -replace 'mc:Ignorable="d"','' -replace "d:DesignHeight=`"\d+`"",'' -replace "d:DesignWidth=`"\d+`"",'' -replace 'xmlns:d="http://schemas.microsoft.com/expression/blend/2008"','' -replace 'xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"',''
+
+    $reader = New-Object System.Xml.XmlNodeReader ([xml]$input_xml)
+    $Global:WIMWitch_Form = [Windows.Markup.XamlReader]::Load($reader)
+
+    # --- YOUR EXISTING LOGIC STARTS HERE ---
+    # This maps the XML names to PowerShell variables (e.g., $WIMWitch_Form.FindName("btnStart"))
+    $xml.SelectNodes("//*[@Name]") | ForEach-Object {
+        Set-Variable -Name "WIMWitch_$($_.Name)" -Value $Global:WIMWitch_Form.FindName($_.Name) -Scope Global
+    }
+
+    # --- SHOW THE WINDOW ---
+    $Global:WIMWitch_Form.WindowStartupLocation = "CenterScreen"
+    $Global:WIMWitch_Form.ShowDialog() | Out-Null
+
+} catch {
+    $ErrorMessage = $_.Exception.Message
+    if ($_.Exception.InnerException) { $ErrorMessage += "`n`nInner: " + $_.Exception.InnerException.Message }
+    [System.Windows.MessageBox]::Show("GUI Failed to Load:`n`n$ErrorMessage", "WIM Witch Error")
+}
+Function WimWitchFK {
 
 
     #Requires -Version 5.0
